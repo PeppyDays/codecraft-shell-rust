@@ -1,5 +1,9 @@
+use std::env;
+use std::fs;
 use std::io;
 use std::io::Write;
+use std::os::unix::prelude::PermissionsExt;
+use std::path::PathBuf;
 use std::process::exit;
 
 fn main() {
@@ -36,9 +40,25 @@ fn execute(line: &str) {
             if BUILTIN_COMMANDS.contains(&args) {
                 println!("{} is a shell builtin", args);
             } else {
-                println!("{}: not found", args);
+                let found_full_path = env::var_os("PATH").and_then(|paths| {
+                    env::split_paths(&paths).find_map(|path| {
+                        let full_path = path.join(args);
+                        (full_path.is_file() && is_executable(&full_path)).then_some(full_path)
+                    })
+                });
+
+                match found_full_path {
+                    Some(path) => println!("{} is {}", args, path.to_string_lossy()),
+                    None => println!("{}: not found", args),
+                }
             }
         }
         _ => println!("{}: command not found", line),
     }
+}
+
+fn is_executable(path: &PathBuf) -> bool {
+    fs::metadata(path)
+        .map(|meta| meta.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
 }
