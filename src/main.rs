@@ -21,6 +21,8 @@ fn read() -> String {
     line
 }
 
+static BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type"];
+
 fn execute(line: &str) {
     let line = line.trim();
     let mut parts = line.splitn(2, ' ');
@@ -30,6 +32,13 @@ fn execute(line: &str) {
     match command {
         "exit" => exit(0),
         "echo" => println!("{}", args),
+        "type" => {
+            if BUILTIN_COMMANDS.contains(&args) {
+                println!("{} is a shell builtin", args);
+            } else {
+                println!("{}: not found", args);
+            }
+        }
         _ => println!("{}: command not found", line),
     }
 }
