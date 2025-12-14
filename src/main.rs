@@ -26,7 +26,7 @@ fn read() -> String {
     line
 }
 
-static BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd"];
+static BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 
 fn execute(line: &str) {
     let line = line.trim();
@@ -49,6 +49,16 @@ fn execute(line: &str) {
                     Some(path) => println!("{} is {}", args, path.to_string_lossy()),
                     None => println!("{}: not found", args),
                 }
+            }
+        }
+        "cd" => {
+            let target_dir = if args.is_empty() {
+                env::var("HOME").unwrap_or_else(|_| String::from("/"))
+            } else {
+                args.to_string()
+            };
+            if env::set_current_dir(&target_dir).is_err() {
+                println!("cd: {}: No such file or directory", target_dir);
             }
         }
         _ => {
