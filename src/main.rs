@@ -26,7 +26,7 @@ fn read() -> String {
     line
 }
 
-static BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type"];
+static BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd"];
 
 fn execute(line: &str) {
     let line = line.trim();
@@ -37,6 +37,10 @@ fn execute(line: &str) {
     match command {
         "exit" => exit(0),
         "echo" => println!("{}", args),
+        "pwd" => match env::current_dir() {
+            Ok(path) => println!("{}", path.to_string_lossy()),
+            Err(e) => eprintln!("pwd: error retrieving current directory: {}", e),
+        },
         "type" => {
             if BUILTIN_COMMANDS.contains(&args) {
                 println!("{} is a shell builtin", args);
