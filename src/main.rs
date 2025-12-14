@@ -52,7 +52,7 @@ fn execute(line: &str) {
             }
         }
         "cd" => {
-            let target_dir = if args.is_empty() {
+            let target_dir = if args.is_empty() || args == "~" {
                 env::var("HOME").unwrap_or_else(|_| String::from("/"))
             } else {
                 args.to_string()
