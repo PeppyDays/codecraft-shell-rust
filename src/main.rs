@@ -5,11 +5,8 @@ use std::process::exit;
 fn main() {
     loop {
         prompt();
-        let command = read();
-        if command.trim() == "exit" {
-            break;
-        }
-        execute(command);
+        let line = read();
+        execute(&line);
     }
 }
 
@@ -19,20 +16,20 @@ fn prompt() {
 }
 
 fn read() -> String {
-    let mut command = String::new();
-    io::stdin().read_line(&mut command).unwrap();
-    command
+    let mut line = String::new();
+    io::stdin().read_line(&mut line).unwrap();
+    line
 }
 
-fn execute(command: String) {
-    let command = command.trim();
+fn execute(line: &str) {
+    let line = line.trim();
+    let mut parts = line.splitn(2, ' ');
+    let command = parts.next().unwrap_or("");
+    let args = parts.next().unwrap_or("");
 
     match command {
-        "exit" => {
-            exit(0);
-        }
-        _ => {
-            println!("{}: command not found", command);
-        }
+        "exit" => exit(0),
+        "echo" => println!("{}", args),
+        _ => println!("{}: command not found", line),
     }
 }
