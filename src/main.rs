@@ -4,6 +4,7 @@ use std::io;
 use std::io::Write;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
+use std::process;
 use std::process::exit;
 
 fn main() {
@@ -40,21 +41,36 @@ fn execute(line: &str) {
             if BUILTIN_COMMANDS.contains(&args) {
                 println!("{} is a shell builtin", args);
             } else {
-                let found_full_path = env::var_os("PATH").and_then(|paths| {
-                    env::split_paths(&paths).find_map(|path| {
-                        let full_path = path.join(args);
-                        (full_path.is_file() && is_executable(&full_path)).then_some(full_path)
-                    })
-                });
-
-                match found_full_path {
+                match find_command_in_path(args) {
                     Some(path) => println!("{} is {}", args, path.to_string_lossy()),
                     None => println!("{}: not found", args),
                 }
             }
         }
-        _ => println!("{}: command not found", line),
+        _ => {
+            find_command_in_path(command).map_or_else(
+                || println!("{}: command not found", command),
+                |_path| {
+                    process::Command::new(command)
+                        .args(args.split_whitespace())
+                        .status()
+                        .unwrap_or_else(|e| {
+                            eprintln!("Failed to execute {}: {}", command, e);
+                            process::exit(1);
+                        });
+                },
+            );
+        }
     }
+}
+
+fn find_command_in_path(command: &str) -> Option<PathBuf> {
+    env::var_os("PATH").and_then(|paths| {
+        env::split_paths(&paths).find_map(|path| {
+            let full_path = path.join(command);
+            (full_path.is_file() && is_executable(&full_path)).then_some(full_path)
+        })
+    })
 }
 
 fn is_executable(path: &PathBuf) -> bool {
