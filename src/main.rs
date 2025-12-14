@@ -32,30 +32,32 @@ fn execute(line: &str) {
     let line = line.trim();
     let mut parts = line.splitn(2, ' ');
     let command = parts.next().unwrap_or("");
-    let args = parts.next().unwrap_or("");
+    let args = parse_args(parts.next().unwrap_or(""));
 
     match command {
         "exit" => exit(0),
-        "echo" => println!("{}", args),
+        "echo" => println!("{}", args.join(" ")),
         "pwd" => match env::current_dir() {
             Ok(path) => println!("{}", path.to_string_lossy()),
             Err(e) => eprintln!("pwd: error retrieving current directory: {}", e),
         },
         "type" => {
-            if BUILTIN_COMMANDS.contains(&args) {
-                println!("{} is a shell builtin", args);
+            if args.is_empty() {
+                println!("type: missing argument");
+            } else if BUILTIN_COMMANDS.contains(&args[0].as_str()) {
+                println!("{} is a shell builtin", args[0]);
             } else {
-                match find_command_in_path(args) {
-                    Some(path) => println!("{} is {}", args, path.to_string_lossy()),
-                    None => println!("{}: not found", args),
+                match find_command_in_path(&args[0]) {
+                    Some(path) => println!("{} is {}", args[0], path.to_string_lossy()),
+                    None => println!("{}: not found", args[0]),
                 }
             }
         }
         "cd" => {
-            let target_dir = if args.is_empty() || args == "~" {
+            let target_dir = if args.is_empty() || args[0] == "~" {
                 env::var("HOME").unwrap_or_else(|_| String::from("/"))
             } else {
-                args.to_string()
+                args[0].to_string()
             };
             if env::set_current_dir(&target_dir).is_err() {
                 println!("cd: {}: No such file or directory", target_dir);
@@ -66,7 +68,7 @@ fn execute(line: &str) {
                 || println!("{}: command not found", command),
                 |_path| {
                     process::Command::new(command)
-                        .args(args.split_whitespace())
+                        .args(args)
                         .status()
                         .unwrap_or_else(|e| {
                             eprintln!("Failed to execute {}: {}", command, e);
@@ -91,4 +93,32 @@ fn is_executable(path: &PathBuf) -> bool {
     fs::metadata(path)
         .map(|meta| meta.permissions().mode() & 0o111 != 0)
         .unwrap_or(false)
+}
+
+fn parse_args(input: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+
+    for c in input.chars() {
+        match c {
+            '\'' => {
+                in_quotes = !in_quotes;
+            }
+            c if c.is_whitespace() && !in_quotes => {
+                if !current.is_empty() {
+                    result.push(std::mem::take(&mut current));
+                }
+            }
+            c => {
+                current.push(c);
+            }
+        }
+    }
+
+    if !current.is_empty() {
+        result.push(current);
+    }
+
+    result
 }
