@@ -104,6 +104,12 @@ fn parse_args(input: &str) -> Vec<String> {
     let mut in_escape = false;
 
     for c in input.chars() {
+        // println!(
+        //     "char: '{}', in_single_quotes: {}, in_double_quotes: {}, in_escape: {}, current: {}",
+        //     c, in_single_quotes, in_double_quotes, in_escape, current,
+        // );
+        // println!();
+        //
         match c {
             c if c == '\'' && !in_double_quotes && !in_escape => {
                 in_single_quotes = !in_single_quotes;
@@ -111,11 +117,20 @@ fn parse_args(input: &str) -> Vec<String> {
             c if c == '\"' && !in_single_quotes && !in_escape => {
                 in_double_quotes = !in_double_quotes;
             }
-            c if c == '\\' && !in_single_quotes && !in_double_quotes => {
+            c if c == '\\' && !in_single_quotes && !in_escape => {
                 in_escape = true;
             }
             c if in_escape => {
-                current.push(c);
+                if in_double_quotes {
+                    if matches!(c, '"' | '\\' | '$' | '`' | '\n') {
+                        current.push(c);
+                    } else {
+                        current.push('\\');
+                        current.push(c);
+                    }
+                } else {
+                    current.push(c);
+                }
                 in_escape = false;
             }
             c if c.is_whitespace() && !in_single_quotes && !in_double_quotes => {
