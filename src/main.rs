@@ -11,8 +11,7 @@ use std::process::exit;
 fn main() {
     loop {
         prompt();
-        let line = read();
-        execute(&line);
+        execute(&read());
     }
 }
 
@@ -31,11 +30,13 @@ static BUILTIN_COMMANDS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 
 fn execute(line: &str) {
     let line = line.trim();
-    let mut parts = line.splitn(2, ' ');
-    let command = parts.next().unwrap_or("");
-    let args = parse_args(parts.next().unwrap_or(""));
+    let parts = parse_line(line);
+    if parts.is_empty() {
+        return;
+    }
+    let (command, args) = parts.split_first().unwrap();
 
-    match command {
+    match command.as_str() {
         "exit" => exit(0),
         "echo" => println!("{}", args.join(" ")),
         "pwd" => match env::current_dir() {
@@ -96,7 +97,7 @@ fn is_executable(path: &PathBuf) -> bool {
         .unwrap_or(false)
 }
 
-fn parse_args(input: &str) -> Vec<String> {
+fn parse_line(input: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut current = String::new();
     let mut in_double_quotes = false;
