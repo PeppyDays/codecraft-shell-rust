@@ -34,25 +34,25 @@ impl<'a> Command<'a> {
         })
     }
 
-    pub fn execute(&self) {
+    pub fn execute(&self, mut log: impl FnMut(&str)) {
         match self {
             Command::Exit => {
                 std::process::exit(0);
             }
             Command::Echo(args) => {
-                println!("{}", args.join(" "));
+                log(&args.join(" "));
             }
             Command::Pwd => match std::env::current_dir() {
-                Ok(path) => println!("{}", path.display()),
+                Ok(path) => log(path.display().to_string().as_str()),
                 Err(e) => eprintln!("pwd: error retrieving current directory: {}", e),
             },
             Command::Type(cmd) => {
                 if BUILTIN_COMMANDS.contains(cmd) {
-                    println!("{} is a shell builtin", cmd);
+                    log(&format!("{} is a shell builtin", cmd));
                 } else {
                     match Self::find_command_in_path(cmd) {
-                        Some(path) => println!("{} is {}", cmd, path.display()),
-                        None => println!("{}: not found", cmd),
+                        Some(path) => log(&format!("{} is {}", cmd, path.display())),
+                        None => log(&format!("{}: not found", cmd)),
                     }
                 }
             }
@@ -67,11 +67,18 @@ impl<'a> Command<'a> {
                 }
             }
             Command::External(cmd, args) => {
-                let status = std::process::Command::new(cmd).args(args).status();
-                match status {
-                    Ok(status) => {
-                        if !status.success() {
-                            eprintln!("{}: command exited with status {}", cmd, status);
+                let output = std::process::Command::new(cmd).args(args).output();
+                match output {
+                    Ok(output) => {
+                        if !output.stdout.is_empty()
+                            && let Ok(stdout) = String::from_utf8(output.stdout)
+                        {
+                            log(&stdout)
+                        }
+                        if !output.stderr.is_empty()
+                            && let Ok(stderr) = String::from_utf8(output.stderr)
+                        {
+                            eprintln!("{}", stderr.trim());
                         }
                     }
                     Err(_) => {
