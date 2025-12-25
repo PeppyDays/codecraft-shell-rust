@@ -3,12 +3,16 @@ use std::io::Write;
 
 use codecrafters_shell::command::Command;
 use codecrafters_shell::logger::get_logger;
+use codecrafters_shell::redirection::split_redirections;
 use codecrafters_shell::tokenization::tokenize;
 
 fn main() {
     loop {
         prompt();
-        run(&read());
+        match read() {
+            Some(line) => run(&line),
+            None => break,
+        }
     }
 }
 
@@ -17,27 +21,20 @@ fn prompt() {
     io::stdout().flush().unwrap();
 }
 
-fn read() -> String {
+fn read() -> Option<String> {
     let mut line = String::new();
-    io::stdin().read_line(&mut line).unwrap();
-    line
-}
-
-fn run(line: &str) {
-    let mut parts = tokenize(line.trim());
-    let standard_output_redirection_file_name = parse_redirection(&mut parts);
-    let log = get_logger(standard_output_redirection_file_name.as_deref());
-    if let Some(cmd) = Command::parse(&parts) {
-        cmd.execute(log);
+    match io::stdin().read_line(&mut line) {
+        Ok(0) => None,
+        Ok(_) => Some(line),
+        Err(_) => None,
     }
 }
 
-fn parse_redirection(parts: &mut Vec<String>) -> Option<String> {
-    let pos = parts.iter().position(|s| s == ">" || s == "1>")?;
-    let mut rest = parts.split_off(pos);
-    if rest.len() > 1 {
-        Some(rest.remove(1))
-    } else {
-        None
+fn run(line: &str) {
+    let parts = tokenize(line.trim());
+    let (command_parts, standard_output_redirection_file_name) = split_redirections(parts);
+    let log = get_logger(standard_output_redirection_file_name.as_deref());
+    if let Some(cmd) = Command::parse(&command_parts) {
+        cmd.execute(log);
     }
 }
