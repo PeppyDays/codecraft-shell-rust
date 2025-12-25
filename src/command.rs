@@ -36,14 +36,16 @@ impl<'a> Command<'a> {
         })
     }
 
-    pub fn execute(&self, log: impl FnMut(&str)) {
+    pub fn execute(&self, log_stdout: impl FnMut(&str), log_stderr: impl FnMut(&str)) {
         match self {
             Command::Exit => Self::execute_exit(),
-            Command::Echo(args) => Self::execute_echo(args, log),
-            Command::Pwd => Self::execute_pwd(log),
-            Command::Type(cmd) => Self::execute_type(cmd, log),
+            Command::Echo(args) => Self::execute_echo(args, log_stdout),
+            Command::Pwd => Self::execute_pwd(log_stdout, log_stderr),
+            Command::Type(cmd) => Self::execute_type(cmd, log_stdout),
             Command::Cd(target) => Self::execute_cd(target),
-            Command::External(cmd, args) => Self::execute_external(cmd, args, log),
+            Command::External(cmd, args) => {
+                Self::execute_external(cmd, args, log_stdout, log_stderr)
+            }
         }
     }
 
@@ -51,24 +53,24 @@ impl<'a> Command<'a> {
         std::process::exit(0)
     }
 
-    fn execute_echo(args: &[&str], mut log: impl FnMut(&str)) {
-        log(&args.join(" "));
+    fn execute_echo(args: &[&str], mut log_stdout: impl FnMut(&str)) {
+        log_stdout(&args.join(" "));
     }
 
-    fn execute_pwd(mut log: impl FnMut(&str)) {
+    fn execute_pwd(mut log_stdout: impl FnMut(&str), mut log_stderr: impl FnMut(&str)) {
         match std::env::current_dir() {
-            Ok(path) => log(path.display().to_string().as_str()),
-            Err(e) => eprintln!("pwd: error retrieving current directory: {}", e),
+            Ok(path) => log_stdout(path.display().to_string().as_str()),
+            Err(e) => log_stderr(&format!("pwd: error retrieving current directory: {}", e)),
         }
     }
 
-    fn execute_type(cmd: &str, mut log: impl FnMut(&str)) {
+    fn execute_type(cmd: &str, mut log_stdout: impl FnMut(&str)) {
         if BUILTIN_COMMANDS.contains(&cmd) {
-            log(&format!("{} is a shell builtin", cmd));
+            log_stdout(&format!("{} is a shell builtin", cmd));
         } else {
             match Self::find_command_in_path(cmd) {
-                Some(path) => log(&format!("{} is {}", cmd, path.display())),
-                None => log(&format!("{}: not found", cmd)),
+                Some(path) => log_stdout(&format!("{} is {}", cmd, path.display())),
+                None => log_stdout(&format!("{}: not found", cmd)),
             }
         }
     }
@@ -84,23 +86,28 @@ impl<'a> Command<'a> {
         }
     }
 
-    fn execute_external(cmd: &str, args: &[&str], mut log: impl FnMut(&str)) {
+    fn execute_external(
+        cmd: &str,
+        args: &[&str],
+        mut log_stdout: impl FnMut(&str),
+        mut log_stderr: impl FnMut(&str),
+    ) {
         let output = std::process::Command::new(cmd).args(args).output();
         match output {
             Ok(output) => {
                 if !output.stdout.is_empty()
                     && let Ok(stdout) = String::from_utf8(output.stdout)
                 {
-                    log(&stdout)
+                    log_stdout(&stdout)
                 }
                 if !output.stderr.is_empty()
                     && let Ok(stderr) = String::from_utf8(output.stderr)
                 {
-                    eprintln!("{}", stderr.trim());
+                    log_stderr(&stderr)
                 }
             }
             Err(_) => {
-                eprintln!("{}: command not found", cmd);
+                log_stderr(&format!("{}: command not found", cmd));
             }
         }
     }

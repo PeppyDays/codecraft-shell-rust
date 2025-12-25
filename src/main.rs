@@ -2,7 +2,8 @@ use std::io;
 use std::io::Write;
 
 use codecrafters_shell::command::Command;
-use codecrafters_shell::logger::get_logger;
+use codecrafters_shell::logger::get_stderr_logger;
+use codecrafters_shell::logger::get_stdout_logger;
 use codecrafters_shell::redirection::split_redirections;
 use codecrafters_shell::tokenization::tokenize;
 
@@ -32,9 +33,11 @@ fn read() -> Option<String> {
 
 fn run(line: &str) {
     let parts = tokenize(line.trim());
-    let (command_parts, standard_output_redirection_file_name) = split_redirections(parts);
-    let log = get_logger(standard_output_redirection_file_name.as_deref());
-    if let Some(cmd) = Command::parse(&command_parts) {
-        cmd.execute(log);
+    let (command_parts, stdout_redirection_file_name, stderr_redirection_file_name) =
+        split_redirections(&parts);
+    let log_stdout = get_stdout_logger(stdout_redirection_file_name);
+    let log_stderr = get_stderr_logger(stderr_redirection_file_name);
+    if let Some(cmd) = Command::parse(command_parts) {
+        cmd.execute(log_stdout, log_stderr);
     }
 }
